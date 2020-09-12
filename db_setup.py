@@ -11,7 +11,7 @@ reviews_ratings = [('Really good',4), ('Excellent', 5), ('Average',3), ('Bad', 2
 # 		name = row[0]
 # 		image = row[1]
 # 		all_prods.append({'product_name':name, 'image':image})
-with app.app_context():
+# with app.app_context():
 	# Inital setup. Create DB and Add all products.
 	# db.create_all()
 	# for prod in all_prods:
@@ -20,12 +20,19 @@ with app.app_context():
 # print("All products added")
 
 	# Add random reviews
-	all_prods = Products.query.all()
-	for p in all_prods:
-		for i in range(3):
-			rat_rev = random.choice(reviews_ratings)
-			review = Reviews(product=p, review_string=rat_rev[0], rating=rat_rev[1], status="PROCESSED")
-			db.session.add(review)
-	db.session.commit()
-print("All reviews added")
+
+# with app.app_context():
+# 	prods = Products.query
+# 	all_prods = prods.all()
+# 	count = prods.count()
+# 	random.shuffle(all_prods)
+# 	for p in all_prods[:count//2]:
+# 		for i in range(random.choice([0,1,2,3,4,5,6,7,8,9])):
+# 			rat_rev = random.choice(reviews_ratings)
+# 			review = Reviews(product=p, review_string=rat_rev[0], rating=rat_rev[1], status="PROCESSED")
+# 			db.session.add(review)
+# 	db.session.commit()
+# print("All reviews added")
+
+
 

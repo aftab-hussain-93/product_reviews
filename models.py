@@ -1,4 +1,4 @@
-from app import db
+from extensions import db
 
 class Base(db.Model):
 	__abstract__ = True
@@ -31,6 +31,11 @@ class Ratings(Base):
 	"""
 	product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False, unique=True)
 	rating_string = db.Column(db.String, nullable=False, default='000000')
+
+	"""
+	Write a function to validate the ratiings strings. It should contain digits between 0-5 and have a length of 6.
+	Regex
+	"""
 
 	def __repr__(self):
 		return "Rating {} - {}".format(self.product_id, self.rating_string)
