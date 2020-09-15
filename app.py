@@ -1,8 +1,10 @@
-from flask import Flask, request
-from sqlalchemy import func
+import re
+from flask import Flask, request, render_template, redirect, url_for, jsonify
 from config import Config
 from extensions import db
 from models import Reviews, Products, Ratings
+from forms import ReviewField
+from utils import add_review_to_db, update_rating_score, review_evaluation, check_threshold
 
 
 def register_extensions(app):
@@ -17,120 +19,89 @@ def create_app(config_object):
 
 app = create_app(Config)
 
-
-REVIEW_THRESHOLD = 1
-PRODUCT_THRESHOLD = 4
-
-
-def update_db(prod_rating):
-	for prod_id, rating in prod_rating.items():
-		print(f"Product ID {prod_id} - {rating}")
-		count = Ratings.query.filter(Ratings.product_id==prod_id).count()
-		print(count)
-		if count > 0:
-			# Updating
-			print(f"Updating to rating {rating}")
-			rating = Ratings.query.filter(Ratings.product_id == prod_id).first()
-			rating.rating_string = str(rating)
-			print("Updating")
-		else:
-			# Inserting
-			rating = Ratings(product_id=prod_id, rating_string=str(rating))
-			db.session.add(rating)
-			print("Inserting")
-	db.session.commit()
-
-def review_evaluation(product_list=None):
-	"""
-	input : Products that have new reviews
-	output : Evaluated ratings string and updates the database
-	Evaluates all the new reviews
-	"""
-	products  = Products.query.filter(Products.id.in_(product_list)) if product_list else Products.query
-	products = products.all()
-	prod_rating = {}
-	for product in products:
-		review_rating = {}
-		for i in range(6):
-			review_rating[i] = 0
-
-		rating_string = ''
-		
-		for review in product.review:
-			if review.status == 'PROCESSED':
-				review_rating[review.rating] += 1
-
-		for key, val in sorted(review_rating.items()):
-			print("The rating value - {}".format(key))
-			rating_string += str(val)
-		print(f"The overall rating score for product {product.id} is {rating_string}")
-		prod_rating[product.id] = rating_string
-	return prod_rating
-
-def check_threshold():
-	"""
-	Function calculates the number of new reviews per product. If crosses threshold then sends for evaluation.
-	"""
-	app.logger.info('Checking if the threshold has been crossed....')
-
-	# Getting all the products with the count of new reviews
-
-	prod_review = Products.query.with_entities(Products.id,func.count(Products.id)).\
-		join(Reviews).\
-		filter(Reviews.product_id == Products.id, Reviews.status=='NEW').\
-		group_by(Products.id).\
-		having(func.count(Products.id) > REVIEW_THRESHOLD)
-
-	prod_count = prod_review.count()
-	print("The product count is {}".format(prod_count))	
-
-	if prod_count > PRODUCT_THRESHOLD:
-		review_count = prod_review.all()
-		# Send for evaluation
-		prod_ids = [p[0] for p in review_count]
-		new_reviews = Reviews.query.filter(Reviews.status == 'NEW', Reviews.product_id.in_(prod_ids)).all()
-		for review in new_reviews:
-			review.status = 'PROCESSED'
-		db.session.commit()
-		prod_overall_rating = review_evaluation(prod_ids)
-		update_db(prod_overall_rating)
-		return True
-	app.logger.info('Threshold for evaluation has not been reached')
-	return False
-
-
-@app.route('/test')
-def test():
-	prod_overall_rating = review_evaluation()
-	update_db(prod_overall_rating)
-	return "testing"
-
-@app.route('/api/productrating')
-def get_product_rating():
-	prod_overall_rating = review_evaluation()
-	return prod_overall_rating, 200
-
+@app.route('/home')
 @app.route('/')
 def home():
 	"""
-	View displays all the products available
+	Home page - Displays all the Products available for review.
 	"""
-	return "Hello World"
+	form = ReviewField()
+	products = Products.query.all()
+	return render_template('home.html', form=form, products=products)
 
-@app.route('/add_review', methods=['POST'])
+@app.route('/submit_review', methods=['POST'])
 def add_review():
+	"""
+	View to add review to the Database from the application front end using AJAX.
+	"""
+	form = ReviewField()
+	if form.validate_on_submit():
+		prod_public_key = request.json['prod_id']
+		review_string = form.review.data
+		rating = form.rating.data
+		message, is_new_rating = add_review_to_db(prod_public_key, review_string, rating)
+		return {'message': message }, 200
+	return jsonify({'error' : form.errors if form.errors else 'Bad Request'}), 400
+
+@app.route('/api/product_rating')
+def all_product_rating():
+	"""
+	Function returning the Rating string for all the products and product names using API call.
+	"""
+	prods = Products.query.all()
+	res = [{prod.id : {prod.name : prod.rating[0].rating_string}} for prod in prods]
+	return jsonify(res), 200
+
+
+@app.route('/api/add_review', methods=['POST'])
+def api_add_review():
+	"""
+	View function to add review through an API call.
+	"""
 	data = request.json
-	product_id = data['prod_id']
-	review_string = data['review_string']
-	rating = data['rating']
-	review = Reviews(product_id=product_id, review_string=review_string, rating=rating)
-	db.session.add(review)
-	db.session.commit()
-	app.logger.info(f"Product ID - {product_id}, Rating {rating} and Review - {review_string}")
-	result = check_threshold()
-	message = 'Review added. ' + ('New rating score evaluated.' if result else 'Rating score not evaluated.')
-	app.logger.info(message)
-	return {'message':message}, 200
+	try:
+		prod_public_key = data['product_id']
+		review_string = str(data['review_string'])
+		rating = int(data['rating'])
+		if rating < 1 or rating > 5:
+			raise ValueError("Invalid input. Rating should be between 1-5")
+		product = Products.query.filter(Products.public_key == prod_public_key).first()
+		if product:
+			app.logger.info(f"Request received to add review for product {prod_public_key}...")
+			message, is_new_rating = add_review_to_db(prod_public_key, review_string, rating)
+			result = {'message':message, 'product_id': prod_public_key, 'review_evaluated': is_new_rating}
+			return result, 201 if is_new_rating else 200
+		else:
+			raise ValueError("Invalid input. Product does not exist.")
+	except KeyError:
+		return {'error' :'Invalid input. Please provide the Product public key, review and rating between 1-5.'}, 400
+	except ValueError as e:
+		return {'error': str(e)}, 400
+
+@app.route('/api/all_products')
+def get_products():
+	"""
+	Returns a list of all the products
+	"""
+	return Products.get_all_products()
+
+@app.route('/api/product/<public_key>')
+def product_rating(public_key):
+	"""
+	Returns a particular products details.
+	"""
+	prod = Products.query.filter(Products.public_key == public_key).first()
+	rt_string = prod.rating.rating_string
+	return {'name' : prod.name, 'public_key': prod.public_key, 'rating_string': rt_string}
+
+
+@app.template_filter()
+def rating_list(rating_string):
+	"""
+	Jinja filter to parse the rating string to display details
+	"""
+	rating_values = re.findall(r'\d+', rating_string)
+	return rating_values
 
 if __name__ == '__main__':
 	app.run(debug=True)

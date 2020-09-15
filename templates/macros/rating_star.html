@@ -1,0 +1,16 @@
+{% macro star_rating(count=0, ratings=0) -%}
+<div class="rating-container">
+	<span>
+	{% for i in range(count) %}
+		<span class="fa fa-star checked"></span>
+	{% endfor %}
+	</span>
+	<span style="font-size: 14px">
+	{%- if ratings %}
+		{{ ratings }} 
+	{%- else  %}
+		0
+	{%- endif %}
+	Reviews</span>
+</div>
+{%- endmacro  %}

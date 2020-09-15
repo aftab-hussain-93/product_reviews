@@ -1,0 +1,44 @@
+{% extends "layout.html" %}
+{% from "macros/formfield.html" import formfield %}
+{% from "macros/rating_star.html" import star_rating %}
+{% block title %}
+	Product Reviews
+{% endblock %}
+{% block contents %}
+	<h1>Products available</h1>
+	<hr>
+	<div class="container">
+		{% for product in products %}						
+			<div class="row mt-5">
+				<div class="col-3">
+					<div>
+						{% set rating_list = product.rating[0].rating_score|rating_list %}
+						{% for elem in range(1,6) %}
+							{{ star_rating(loop.index, rating_list[loop.index]) }}
+						{% endfor %}
+					</div>
+					<div class="product-image">
+						<img class="product-image" src="{{ product.image_url }}" style="height:200px; width:200px;">
+					</div>					
+				</div>
+				<div class="col-9">
+					<h3>{{ product.name }}</h3>
+					<hr>
+					<br>
+					<form method="POST" id="{{ product.public_key }}">
+						{{ form.csrf_token }}
+						<div class="successMessage message alert alert-success" role="alert"></div>
+						<div class="errorMessage message alert alert-danger" role="alert"></div>
+						{{ formfield(label=form.review.label(class="form-control-label"), field=form.review(class="review form-control form-control-lg")) }}
+						{{ formfield(label=form.rating.label, field=form.rating(class="rating form-control-sm")) }}
+						<button class="submitReview btn btn-primary">Submit Review</button>
+					</form>
+				</div>
+			</div>
+			<hr>
+		{% endfor %}
+	</div>
+{% endblock%}
+{% block scripts %}
+	<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% endblock %}
