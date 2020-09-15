@@ -99,7 +99,6 @@ def review_evaluation(product_list):
 			for review in product.review:
 				if review.status == 'PROCESSED':
 					review_rating[review.rating] += 1
-
 			rating_list = '*'.join([str(val) for key, val in sorted(review_rating.items())])
 			prod_rating[product.public_key] = rating_list
 		return prod_rating

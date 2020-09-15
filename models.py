@@ -27,7 +27,7 @@ class Products(Base):
 class Reviews(Base):
 	product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
 	review_string = db.Column(db.String, nullable=False)
-	rating = db.Column(db.Integer)
+	rating = db.Column(db.Integer, nullable=False)
 	status = db.Column(db.String, default='NEW') #Valid statuses - NEW, PROCESSED, EVALUATING(?)
 
 	def __repr__(self):
