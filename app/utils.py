@@ -1,7 +1,7 @@
 from flask import current_app as app
 from sqlalchemy import func
-from extensions import db
-from models import Reviews, Products, Ratings
+from app.models import Reviews, Products, Ratings
+from app import db
 
 # Starting with 0, every new review triggers an evaluation
 REVIEW_THRESHOLD = 0

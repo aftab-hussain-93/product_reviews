@@ -1,10 +1,11 @@
 import pandas as pd
 import re, random, uuid
-from app import db, app
-from models import Products, Reviews, Ratings
-from utils import check_threshold, update_rating_score, review_evaluation
+from run import app
+from app import db
+from app.models import Products, Reviews, Ratings
+from app.utils import update_rating_score, review_evaluation
 
-df = pd.read_csv('data/flipkart_com-ecommerce_sample.csv', usecols=['product_name','image'])
+df = pd.read_csv('sample-data/flipkart_com-ecommerce_sample.csv', usecols=['product_name','image'])
 df = df.sample(frac=1).reset_index(drop=True)
 data = df.head(300)
 sample_reviews = [('Really good',4), ('Excellent', 5), ('Average',3), ('Bad', 2), ('Horrible', 1) ]

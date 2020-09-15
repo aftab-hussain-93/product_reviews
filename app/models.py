@@ -1,4 +1,6 @@
-from extensions import db
+import re
+from app import db
+from app.general_utilities import calculate_rating_string 
 
 class Base(db.Model):
 	__abstract__ = True
@@ -16,7 +18,7 @@ class Products(Base):
 
 	@classmethod
 	def get_all_products(cls):
-		return {prod.name: prod.public_key for prod in cls.query.all()}
+		return [{"name":prod.name, "public_key":prod.public_key} for prod in cls.query.all()]
 
 	def __repr__(self):
 		return "Product {} - {}".format(self.name, self.image_url)
@@ -55,33 +57,3 @@ class Ratings(Base):
 	def __str__(self):
 		return f"Rating string {self.rating_string}"
 
-def calculate_rating_string(rating_list):
-	"""
-	input - list of rating numbers
-	output - string consisting of the evaluated rating score
-	"""
-	paren = []
-	for i in rating_list:  
-
-		# Calculating the difference between opening and closing braces for the digit 
-		if (paren.count('(') - paren.count(')')) <= i: 
-
-			# If the next digit is greater, then open the brackets 
-			while (paren.count('(') - paren.count(')')) != i: 
-				paren.append('(')          
-			paren.append(i)      
-			  
-			# Similarly, find the difference between opening and closing braces 
-		elif (paren.count('(') - paren.count(')')) > i: 
-
-			# If the next digit is smaller, then close the brackets 
-			while (paren.count('(') - paren.count(')')) != i: 
-				paren.append(')') 
-			paren.append(i)   
-
-	# Finally, close the remaining brackets 
-	while (paren.count('(') - paren.count(')')) != 0: 
-		paren.append(')') 
-
-	# Returning the string 
-	return ''.join(map(str, paren)) 
